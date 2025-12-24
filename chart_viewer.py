@@ -27,15 +27,20 @@ def display_signal_chart(selected_row):
         return
 
     ticker = selected_row['Ticker Name']
-    signal_date = pd.to_datetime(selected_row['Occurence Date']).date()
     indicator = selected_row['Indicator']
+    
+    # 1. Date Extraction and Conversion (The Final Fix)
+    # 💡 CHANGE: Convert to a Pandas Timestamp and keep it that way for arithmetic.
+    signal_timestamp = pd.to_datetime(selected_row['Occurence Date'])
+    signal_date_str = signal_timestamp.strftime('%Y-%m-%d') # Use this for display
 
-    # Define the chart window (+- 30 days)
-    chart_start_date = signal_date - timedelta(days=30)
-    chart_end_date = signal_date + timedelta(days=30)
+    # 2. Define the chart window (+- 30 days)
+    # Arithmetic is performed on the flexible Pandas Timestamp object.
+    chart_start_date = signal_timestamp - timedelta(days=30)
+    chart_end_date = signal_timestamp + timedelta(days=30)
     
     st.subheader(f"📊 Chart Context for {ticker}")
-    st.markdown(f"**Signal:** {indicator} on **{signal_date}**")
+    st.markdown(f"**Signal:** {indicator} on **{signal_date_str}**")
 
     # Fetch data
     df = get_chart_data(ticker, chart_start_date, chart_end_date)
