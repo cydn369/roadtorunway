@@ -2,18 +2,23 @@
 
 import streamlit as st
 import yfinance as yf
-import plotly.graph_objects as go
-from datetime import timedelta
 import pandas as pd
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots 
+from datetime import timedelta 
 
 # Function to fetch data for the specific chart period
 @st.cache_data(ttl=600)  # Cache for 10 minutes
 def get_chart_data(ticker, start_date, end_date):
-    """Fetches limited historical data using yfinance."""
+    """
+    Fetches limited historical data using yf.Ticker().history() for improved stability 
+    with date handling, which resolves the TypeError issue.
+    """
     try:
-        # Use yf.download for simple chart fetching
-        data = yf.download(ticker, start=start_date, end=end_date, auto_adjust=False)
+        # 💡 FIX: Use yf.Ticker().history(), which is more robust with date objects 
+        # (even if they have been simplified by the Streamlit cache).
+        ticker_obj = yf.Ticker(ticker)
+        data = ticker_obj.history(start=start_date, end=end_date, auto_adjust=False)
         return data
     except Exception as e:
         st.error(f"Error fetching chart data for {ticker}: {e}")
@@ -29,24 +34,25 @@ def display_signal_chart(selected_row):
     ticker = selected_row['Ticker Name']
     indicator = selected_row['Indicator']
     
-    # 1. Date Extraction and Conversion (The Final Fix)
-    # 💡 CHANGE: Convert to a Pandas Timestamp and keep it that way for arithmetic.
+    # 1. Date Extraction and Conversion (The working method)
+    # Convert to a Pandas Timestamp. This is flexible for arithmetic.
     signal_timestamp = pd.to_datetime(selected_row['Occurence Date'])
-    signal_date_str = signal_timestamp.strftime('%Y-%m-%d') # Use this for display
+    signal_date_str = signal_timestamp.strftime('%Y-%m-%d') 
 
     # 2. Define the chart window (+- 30 days)
-    # Arithmetic is performed on the flexible Pandas Timestamp object.
+    # Arithmetic works reliably on the Pandas Timestamp object.
     chart_start_date = signal_timestamp - timedelta(days=30)
     chart_end_date = signal_timestamp + timedelta(days=30)
     
     st.subheader(f"📊 Chart Context for {ticker}")
     st.markdown(f"**Signal:** {indicator} on **{signal_date_str}**")
 
-    # Fetch data
+    # 3. Fetch data
+    # Pass the robust Pandas Timestamps (chart_start_date, chart_end_date)
     df = get_chart_data(ticker, chart_start_date, chart_end_date)
     
     if df is None or df.empty:
-        st.warning(f"No historical data available for {ticker} between {chart_start_date} and {chart_end_date}.")
+        st.warning(f"No historical data available for {ticker} between {chart_start_date.strftime('%Y-%m-%d')} and {chart_end_date.strftime('%Y-%m-%d')}.")
         return
 
     # --- Create Candlestick Chart with Volume ---
@@ -58,7 +64,7 @@ def display_signal_chart(selected_row):
         high=df['High'],
         low=df['Low'],
         close=df['Close'],
-        name='Candlestick',
+        name='Price', # Changed name for clarity
         increasing_line_color='green', 
         decreasing_line_color='red'
     )
@@ -77,7 +83,7 @@ def display_signal_chart(selected_row):
         cols=1, 
         shared_xaxes=True, 
         vertical_spacing=0.1, 
-        row_heights=[0.7, 0.3] # Allocate 70% to price, 30% to volume
+        row_heights=[0.7, 0.3] 
     )
     
     # Add Price Chart
@@ -87,14 +93,15 @@ def display_signal_chart(selected_row):
     fig.add_trace(volume_bar, row=2, col=1)
 
     # Add a marker line for the signal date 
-    fig.add_vline(x=signal_date, line_width=2, line_dash="dash", line_color="orange", row=1, col=1, 
-                  annotation_text="Signal Date", annotation_position="top right")
+    # Use the signal_timestamp for the vline position
+    fig.add_vline(x=signal_timestamp, line_width=2, line_dash="dash", line_color="orange", row=1, col=1, 
+                  annotation_text="Signal Date", annotation_position="top right") 
 
     # Update Layout
     fig.update_layout(
-        title=f"{ticker} Price & Volume around Signal Date ({signal_date})",
+        title=f"{ticker} Price & Volume around Signal Date ({signal_date_str})",
         xaxis_tickformat='%Y-%m-%d',
-        xaxis_rangeslider_visible=False, # Hide the bottom slider for clean view
+        xaxis_rangeslider_visible=False, 
         height=600,
         margin=dict(l=20, r=20, t=50, b=20)
     )
