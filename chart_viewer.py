@@ -4,6 +4,7 @@ import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
 from datetime import timedelta
+import pandas as pd
 
 # Function to fetch data for the specific chart period
 @st.cache_data(ttl=600)  # Cache for 10 minutes
