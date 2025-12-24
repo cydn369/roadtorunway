@@ -1,18 +1,20 @@
-# app.py
+# app.py (REVISED FOR PERSISTENCE)
 
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 from io import BytesIO
 import base64
-from plotly.subplots import make_subplots
+from plotly.subplots import make_subplots 
 
 # Import functions from the separate files
 from data_utils import load_tickers, get_data
 from indicators import calculate_all_indicators, find_indicator_occurrences
-from chart_viewer import display_signal_chart
+from chart_viewer import display_signal_chart 
+
 
 # --- UI Helper Functions (Export/Download) ---
+# (Keep the existing to_excel and get_download_link functions)
 
 def to_excel(df):
     """Converts a pandas DataFrame to an in-memory Excel file (XLSX)."""
@@ -28,6 +30,45 @@ def get_download_link(data, filename, text):
     href = f'<a href="data:application/octet-stream;base64,{b64}" download="{filename}">{text}</a>'
     return href
 
+
+# --- CORE ANALYSIS FUNCTION (Moved out of button block) ---
+
+def run_analysis_and_store(selected_tickers, start_date, end_date):
+    """Fetches data, runs analysis, and stores results in session state."""
+    
+    st.session_state['analysis_ran'] = True
+    all_results = []
+    
+    # Progress Bar
+    my_bar = st.progress(0, text="Starting analysis...")
+    
+    for i, ticker in enumerate(selected_tickers):
+        my_bar.progress((i + 1) / len(selected_tickers), text=f"Analyzing {ticker}...")
+        
+        # Fetch data
+        data = get_data(ticker, start_date, end_date)
+        
+        if data is not None and not data.empty:
+            # Calculate and find occurrences
+            data_with_indicators = calculate_all_indicators(data.copy())
+            ticker_results = find_indicator_occurrences(data_with_indicators, ticker)
+            all_results.extend(ticker_results)
+        else:
+            st.warning(f"Could not retrieve data for **{ticker}** in the selected period.")
+
+    my_bar.empty()
+    st.success("Analysis Complete!")
+    
+    # Store results DataFrame in session state
+    if all_results:
+        results_df = pd.DataFrame(all_results)
+        results_df['Occurence Date'] = pd.to_datetime(results_df['Occurence Date'])
+        results_df = results_df.sort_values(by=['Occurence Date', 'Ticker Name'], ascending=False).reset_index(drop=True)
+        st.session_state['results_df'] = results_df
+    else:
+        st.session_state['results_df'] = pd.DataFrame() # Store empty DF if no results
+
+
 # --- Streamlit UI ---
 
 st.set_page_config(
@@ -37,7 +78,13 @@ st.set_page_config(
 )
 
 st.title("Modular Stock Technical Indicator Finder")
-st.markdown("Select tickers and a date range to find technical indicator occurrences.")
+
+# Initialize session state variables
+if 'analysis_ran' not in st.session_state:
+    st.session_state['analysis_ran'] = False
+if 'results_df' not in st.session_state:
+    st.session_state['results_df'] = pd.DataFrame()
+
 
 # 1. Ticker Dropdown
 tickers = load_tickers()
@@ -64,71 +111,54 @@ if start_date >= end_date:
 
 # 3. Indicators Info
 st.subheader("3. Indicators Being Tracked")
-st.info("The logic is managed in `indicators.py`. Currently tracking: **RSI Oversold**, **Price/200-day SMA Crossover**, and **MACD Bullish Crossover**.")
+st.info("The logic is managed in `indicators.py` with complex, multi-factor analysis.")
 
-# --- Processing and Results ---
-
+# --- The Button and Core Logic Call ---
 if st.button("Run Analysis", type="primary"):
     if not selected_tickers:
         st.warning("Please select at least one ticker to run the analysis.")
-        st.stop()
-        
-    all_results = []
-    
-    # Progress Bar
-    my_bar = st.progress(0, text="Starting analysis...")
-    
-    for i, ticker in enumerate(selected_tickers):
-        my_bar.progress((i + 1) / len(selected_tickers), text=f"Analyzing {ticker}...")
-        
-        # Fetch data (using function from data_utils.py)
-        data = get_data(ticker, start_date, end_date)
-        
-        if data is not None and not data.empty:
-            # Calculate and find occurrences (using functions from indicators.py)
-            data_with_indicators = calculate_all_indicators(data.copy())
-            ticker_results = find_indicator_occurrences(data_with_indicators, ticker)
-            all_results.extend(ticker_results)
-        else:
-            st.warning(f"Could not retrieve data for **{ticker}** in the selected period.")
-
-    my_bar.empty()
-    st.success("Analysis Complete!")
-
-    if all_results:
-        # 4. Table: Ticker Name, Indicator, Occurence Date
-        st.subheader("4. Indicator Occurrence Results")
-        results_df = pd.DataFrame(all_results)
-        results_df['Occurence Date'] = pd.to_datetime(results_df['Occurence Date'])
-        results_df = results_df.sort_values(by=['Occurence Date', 'Ticker Name'], ascending=False).reset_index(drop=True)
-        
-        # Display DataFrame and allow row selection
-        selected_rows = st.dataframe(
-            results_df, 
-            use_container_width=True, 
-            key="results_table",
-            on_select="rerun", # Tells Streamlit to rerun the script when a row is selected
-            selection_mode="single-row"
-        )
-        
-        # Check if a row was selected
-        if selected_rows['selection']['rows']:
-            selected_index = selected_rows['selection']['rows'][0]
-            selected_row_data = results_df.iloc[selected_index].to_dict()
-            
-            # 🎯 3. Display Chart on Row Click 🎯
-            display_signal_chart(selected_row_data) # Call the function from chart_viewer.py
-            
-        # 5. Export to Excel Option
-        st.subheader("5. Export Results")
-        excel_data = to_excel(results_df)
-        st.markdown(
-            get_download_link(
-                excel_data, 
-                f"Indicator_Results_{date.today().strftime('%Y%m%d')}.xlsx",
-                "📥 **Download Results to Excel (XLSX)**"
-            ),
-            unsafe_allow_html=True
-        )
+        # Do not st.stop() here, let it continue to display the warning
     else:
-        st.success("Analysis Complete: No indicator occurrences found for the selected tickers/period.")
+        run_analysis_and_store(selected_tickers, start_date, end_date)
+
+
+# --- RESULTS DISPLAY (Run every time, if results exist) ---
+
+if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty:
+    
+    results_df = st.session_state['results_df']
+    
+    # 4. Table: Ticker Name, Indicator, Occurence Date
+    st.subheader("4. Indicator Occurrence Results")
+    
+    # Display DataFrame and allow row selection
+    selected_rows = st.dataframe(
+        results_df, 
+        use_container_width=True, 
+        key="results_table",
+        on_select="rerun", 
+        selection_mode="single-row"
+    )
+    
+    # Chart Display Logic
+    if selected_rows['selection']['rows']:
+        selected_index = selected_rows['selection']['rows'][0]
+        selected_row_data = results_df.iloc[selected_index].to_dict()
+        
+        # Display Chart on Row Click
+        display_signal_chart(selected_row_data)
+
+    # 5. Export to Excel Option
+    st.subheader("5. Export Results")
+    excel_data = to_excel(results_df)
+    st.markdown(
+        get_download_link(
+            excel_data, 
+            f"Indicator_Results_{date.today().strftime('%Y%m%d')}.xlsx",
+            "📥 **Download Results to Excel (XLSX)**"
+        ),
+        unsafe_allow_html=True
+    )
+
+elif st.session_state['analysis_ran'] and st.session_state['results_df'].empty:
+    st.success("Analysis Complete: No indicator occurrences found for the selected tickers/period.")
