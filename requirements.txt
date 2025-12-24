@@ -3,3 +3,4 @@ pandas
 yfinance
 openpyxl
 TA-Lib
+xlsxwriter
