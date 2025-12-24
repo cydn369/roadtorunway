@@ -5,10 +5,12 @@ import pandas as pd
 from datetime import date, timedelta
 from io import BytesIO
 import base64
+from plotly.subplots import make_subplots
 
 # Import functions from the separate files
 from data_utils import load_tickers, get_data
 from indicators import calculate_all_indicators, find_indicator_occurrences
+from chart_viewer import display_signal_chart
 
 # --- UI Helper Functions (Export/Download) ---
 
@@ -97,12 +99,26 @@ if st.button("Run Analysis", type="primary"):
         # 4. Table: Ticker Name, Indicator, Occurence Date
         st.subheader("4. Indicator Occurrence Results")
         results_df = pd.DataFrame(all_results)
-        # Convert date column to datetime and sort
         results_df['Occurence Date'] = pd.to_datetime(results_df['Occurence Date'])
         results_df = results_df.sort_values(by=['Occurence Date', 'Ticker Name'], ascending=False).reset_index(drop=True)
         
-        st.dataframe(results_df, use_container_width=True)
+        # Display DataFrame and allow row selection
+        selected_rows = st.dataframe(
+            results_df, 
+            use_container_width=True, 
+            key="results_table",
+            on_select="rerun", # Tells Streamlit to rerun the script when a row is selected
+            selection_mode="single-row"
+        )
         
+        # Check if a row was selected
+        if selected_rows['selection']['rows']:
+            selected_index = selected_rows['selection']['rows'][0]
+            selected_row_data = results_df.iloc[selected_index].to_dict()
+            
+            # 🎯 3. Display Chart on Row Click 🎯
+            display_signal_chart(selected_row_data) # Call the function from chart_viewer.py
+            
         # 5. Export to Excel Option
         st.subheader("5. Export Results")
         excel_data = to_excel(results_df)
