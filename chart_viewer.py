@@ -1,24 +1,26 @@
-# chart_viewer.py
+# chart_viewer.py (FINAL FIX)
 
 import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots 
-from datetime import timedelta 
+
+# Note: We no longer need to import datetime.timedelta or date explicitly 
+# since we are relying solely on pd.Timedelta for arithmetic.
 
 # Function to fetch data for the specific chart period
-@st.cache_data(ttl=600)  # Cache for 10 minutes
-def get_chart_data(ticker, start_date, end_date):
+# The arguments are now expected to be strings, which the cache handles reliably.
+@st.cache_data(ttl=600)  
+def get_chart_data(ticker, start_date_str, end_date_str):
     """
-    Fetches limited historical data using yf.Ticker().history() for improved stability 
-    with date handling, which resolves the TypeError issue.
+    Fetches limited historical data using yf.Ticker().history().
+    Dates are now passed as strings to prevent Timestamp type issues with caching.
     """
     try:
-        # 💡 FIX: Use yf.Ticker().history(), which is more robust with date objects 
-        # (even if they have been simplified by the Streamlit cache).
         ticker_obj = yf.Ticker(ticker)
-        data = ticker_obj.history(start=start_date, end=end_date, auto_adjust=False)
+        # 💡 FIX 1: Pass ISO-formatted strings directly to history()
+        data = ticker_obj.history(start=start_date_str, end=end_date_str, auto_adjust=False)
         return data
     except Exception as e:
         st.error(f"Error fetching chart data for {ticker}: {e}")
@@ -36,23 +38,24 @@ def display_signal_chart(selected_row):
     
     # 1. Date Extraction and Conversion
     signal_timestamp = pd.to_datetime(selected_row['Occurence Date'])
-    signal_date_str = signal_timestamp.strftime('%Y-%m-%d') 
-
-    # 2. Define the chart window (+- 30 days)
-    # 💡 FINAL FIX: Use pd.Timedelta to perform arithmetic with a Pandas Timestamp.
-    # The string '30D' means 30 Days and is the preferred modern Pandas method.
+    
+    # 2. Define the chart window (+- 30 days) using pd.Timedelta
     chart_start_date = signal_timestamp - pd.Timedelta(days=30)
     chart_end_date = signal_timestamp + pd.Timedelta(days=30)
+    
+    # 3. Convert calculated Timestamps to ISO strings for caching/yfinance
+    start_date_str = chart_start_date.strftime('%Y-%m-%d')
+    end_date_str = chart_end_date.strftime('%Y-%m-%d')
+    signal_date_str = signal_timestamp.strftime('%Y-%m-%d')
     
     st.subheader(f"📊 Chart Context for {ticker}")
     st.markdown(f"**Signal:** {indicator} on **{signal_date_str}**")
 
-    # 3. Fetch data
-    # Pass the robust Pandas Timestamps (chart_start_date, chart_end_date)
-    df = get_chart_data(ticker, chart_start_date, chart_end_date)
+    # 4. Fetch data: Pass strings to the cached function
+    df = get_chart_data(ticker, start_date_str, end_date_str)
     
     if df is None or df.empty:
-        st.warning(f"No historical data available for {ticker} between {chart_start_date.strftime('%Y-%m-%d')} and {chart_end_date.strftime('%Y-%m-%d')}.")
+        st.warning(f"No historical data available for {ticker} between {start_date_str} and {end_date_str}.")
         return
 
     # --- Create Candlestick Chart with Volume ---
@@ -64,7 +67,7 @@ def display_signal_chart(selected_row):
         high=df['High'],
         low=df['Low'],
         close=df['Close'],
-        name='Price', # Changed name for clarity
+        name='Price',
         increasing_line_color='green', 
         decreasing_line_color='red'
     )
@@ -92,8 +95,7 @@ def display_signal_chart(selected_row):
     # Add Volume Chart
     fig.add_trace(volume_bar, row=2, col=1)
 
-    # Add a marker line for the signal date 
-    # Use the signal_timestamp for the vline position
+    # Add a marker line for the signal date (using the original Timestamp)
     fig.add_vline(x=signal_timestamp, line_width=2, line_dash="dash", line_color="orange", row=1, col=1, 
                   annotation_text="Signal Date", annotation_position="top right") 
 
