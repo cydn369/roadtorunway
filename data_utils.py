@@ -12,10 +12,7 @@ def load_tickers(filename="Nifty500.txt"):
     """
     try:
         with open(filename, 'r') as f:
-            # Read the entire content (assuming one line)
             content = f.read().strip()
-            
-            # Split by comma and clean up any extra whitespace
             tickers = [ticker.strip() for ticker in content.split(',') if ticker.strip()]
             
         if not tickers:
@@ -30,17 +27,20 @@ def load_tickers(filename="Nifty500.txt"):
         st.error(f"An error occurred while reading the file: {e}")
         st.stop()
 
-# Function to get data from yfinance
+# Function to get data using yf.Ticker
 @st.cache_data
 def get_data(ticker, start_date, end_date):
     """
-    Fetches historical stock data using yfinance.
+    Fetches historical stock data using yf.Ticker for better reliability.
     """
     try:
-        # Fetch an extra 200 days of data to ensure enough history for indicators like SMA_200
+        # Fetch an extra 200 days of data for indicators with long lookback periods (e.g., SMA_200)
+        # We fetch history up to the 'end_date'
         buffer_start_date = start_date.replace(year=start_date.year - 1) 
         
-        data = yf.download(ticker, start=buffer_start_date, end=end_date)
+        # 🎯 CHANGE: Using yf.Ticker().history() instead of yf.download()
+        ticker_obj = yf.Ticker(ticker)
+        data = ticker_obj.history(start=buffer_start_date, end=end_date, auto_adjust=False)
         
         if data.empty:
             return None
