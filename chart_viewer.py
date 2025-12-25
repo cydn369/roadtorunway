@@ -1,4 +1,4 @@
-# chart_viewer.py (FINAL FIX)
+# chart_viewer.py (Revised - Focus on Occurence Date)
 
 import streamlit as st
 import yfinance as yf
@@ -6,20 +6,15 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots 
 
-# Note: We no longer need to import datetime.timedelta or date explicitly 
-# since we are relying solely on pd.Timedelta for arithmetic.
-
-# Function to fetch data for the specific chart period
-# The arguments are now expected to be strings, which the cache handles reliably.
+# Note: The get_chart_data function remains the same as it correctly handles strings.
 @st.cache_data(ttl=600)  
 def get_chart_data(ticker, start_date_str, end_date_str):
     """
     Fetches limited historical data using yf.Ticker().history().
-    Dates are now passed as strings to prevent Timestamp type issues with caching.
     """
     try:
         ticker_obj = yf.Ticker(ticker)
-        # 💡 FIX 1: Pass ISO-formatted strings directly to history()
+        # Pass ISO-formatted strings directly to history()
         data = ticker_obj.history(start=start_date_str, end=end_date_str, auto_adjust=False)
         return data
     except Exception as e:
@@ -28,7 +23,8 @@ def get_chart_data(ticker, start_date_str, end_date_str):
 
 def display_signal_chart(selected_row):
     """
-    Displays a candlestick chart for the selected ticker and date range.
+    Displays a candlestick chart for the selected ticker, focusing on the Occurence Date.
+    The chart will show a fixed period (e.g., 60 days) leading up to the signal.
     """
     if selected_row is None:
         return
@@ -36,19 +32,27 @@ def display_signal_chart(selected_row):
     ticker = selected_row['Ticker Name']
     indicator = selected_row['Indicator']
     
-    # 1. Date Extraction and Conversion
+    # 1. Date Extraction
     signal_timestamp = selected_row['Occurence Date']
     
-    # 2. Define the chart window (+- 30 days) using pd.Timedelta
-    chart_start_date = signal_timestamp - pd.Timedelta(days=30)
-    chart_end_date = signal_timestamp + pd.Timedelta(days=30)
-
+    # --- New Chart Range Calculation ---
+    
+    # We define a fixed lookback period (e.g., 60 days of history before the signal)
+    days_lookback = 60
+    
+    # The end date for the chart is the signal date itself
+    chart_end_date = signal_timestamp
+    
+    # The start date is 60 days before the signal date, using pd.Timedelta
+    chart_start_date = signal_timestamp - pd.Timedelta(days=days_lookback)
+    
     # DEBUG PRINT: Show the calculated Timestamps
-    print(f"DEBUG: Chart Start Date (Timestamp): {chart_start_date}")
-    print(f"DEBUG: Chart End Date (Timestamp): {chart_end_date}")
+    print(f"DEBUG: Signal Date (End of Chart): {chart_end_date}")
+    print(f"DEBUG: Chart Start Date ({days_lookback} days before): {chart_start_date}")
+
+    # --- Conversion and Display Setup ---
     
-    
-    # 3. Convert calculated Timestamps to ISO strings for caching/yfinance
+    # Convert calculated Timestamps to ISO strings for caching/yfinance
     start_date_str = chart_start_date.strftime('%Y-%m-%d')
     end_date_str = chart_end_date.strftime('%Y-%m-%d')
     signal_date_str = signal_timestamp.strftime('%Y-%m-%d')
@@ -56,15 +60,16 @@ def display_signal_chart(selected_row):
     st.subheader(f"📊 Chart Context for {ticker}")
     st.markdown(f"**Signal:** {indicator} on **{signal_date_str}**")
 
-    # 4. Fetch data: Pass strings to the cached function
-    df = get_chart_data(ticker, chart_start_date, chart_end_date)
+    # 4. Fetch data: Pass the STRING variables
+    df = get_chart_data(ticker, start_date_str, end_date_str)
     
     if df is None or df.empty:
         st.warning(f"No historical data available for {ticker} between {start_date_str} and {end_date_str}.")
         return
 
     # --- Create Candlestick Chart with Volume ---
-    
+    # 
+
     # 1. Candlestick Trace
     candlestick = go.Candlestick(
         x=df.index,
@@ -100,13 +105,13 @@ def display_signal_chart(selected_row):
     # Add Volume Chart
     fig.add_trace(volume_bar, row=2, col=1)
 
-    # Add a marker line for the signal date (using the original Timestamp)
+    # Add a marker line for the signal date (which is the last data point in this context)
     fig.add_vline(x=signal_timestamp, line_width=2, line_dash="dash", line_color="orange", row=1, col=1, 
                   annotation_text="Signal Date", annotation_position="top right") 
 
     # Update Layout
     fig.update_layout(
-        title=f"{ticker} Price & Volume around Signal Date ({signal_date_str})",
+        title=f"{ticker} Price & Volume leading up to Signal Date ({signal_date_str})",
         xaxis_tickformat='%Y-%m-%d',
         xaxis_rangeslider_visible=False, 
         height=600,
