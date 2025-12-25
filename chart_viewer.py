@@ -37,7 +37,7 @@ def display_signal_chart(selected_row):
     indicator = selected_row['Indicator']
     
     # 1. Date Extraction and Conversion
-    signal_timestamp = pd.to_datetime(selected_row['Occurence Date'])
+    signal_timestamp = selected_row['Occurence Date']
     
     # 2. Define the chart window (+- 30 days) using pd.Timedelta
     chart_start_date = signal_timestamp - pd.Timedelta(days=30)
