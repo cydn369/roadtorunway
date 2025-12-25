@@ -14,7 +14,7 @@ def display_signal_chart(selected_row):
     if selected_row is None:
         return
 
-    ticker = selected_row['Ticker Name']
+    symbol = selected_row['Ticker Name']
     indicator = selected_row['Indicator']
     
     # 1. Date Extraction
