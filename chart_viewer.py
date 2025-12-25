@@ -42,6 +42,11 @@ def display_signal_chart(selected_row):
     # 2. Define the chart window (+- 30 days) using pd.Timedelta
     chart_start_date = signal_timestamp - pd.Timedelta(days=30)
     chart_end_date = signal_timestamp + pd.Timedelta(days=30)
+
+    # DEBUG PRINT: Show the calculated Timestamps
+    print(f"DEBUG: Chart Start Date (Timestamp): {chart_start_date}")
+    print(f"DEBUG: Chart End Date (Timestamp): {chart_end_date}")
+    
     
     # 3. Convert calculated Timestamps to ISO strings for caching/yfinance
     start_date_str = chart_start_date.strftime('%Y-%m-%d')
@@ -52,7 +57,7 @@ def display_signal_chart(selected_row):
     st.markdown(f"**Signal:** {indicator} on **{signal_date_str}**")
 
     # 4. Fetch data: Pass strings to the cached function
-    df = get_chart_data(ticker, start_date_str, end_date_str)
+    df = get_chart_data(ticker, chart_start_date, chart_end_date)
     
     if df is None or df.empty:
         st.warning(f"No historical data available for {ticker} between {start_date_str} and {end_date_str}.")
