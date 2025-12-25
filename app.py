@@ -72,12 +72,12 @@ def run_analysis_and_store(selected_tickers, start_date, end_date):
 # --- Streamlit UI ---
 
 st.set_page_config(
-    page_title="Modular Stock Indicator Finder",
+    page_title="Road to Runway",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("Modular Stock Technical Indicator Finder")
+st.title("Road to Runway")
 
 # Initialize session state variables
 if 'analysis_ran' not in st.session_state:
