@@ -51,7 +51,20 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     
     high_52 = df['High'].rolling(window=52).max()
     low_52 = df['Low'].rolling(window=52).min()
-    df['Senkou_Span_B'] = ((high_52 + low_52) / 2).shift(26) 
+    df['Senkou_Span_B'] = ((high_52 + low_52) / 2).shift(26)
+
+    # 8. Volume + Money Flow
+    df['MFI_14'] = ta.MFI(df['High'], df['Low'], df['Close'], df['Volume'], timeperiod=14)
+    df['OBV'] = ta.OBV(df['Close'], df['Volume'])
+
+    # 9. Volatility (ATR)
+    df['ATR_14'] = ta.ATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+
+    # 10. Extra Momentums
+    df['CCI_20'] = ta.CCI(df['High'], df['Low'], df['Close'], timeperiod=20)
+    df['WILLR_14'] = ta.WILLR(df['High'], df['Low'], df['Close'], timeperiod=14)
+    df['ULTOSC'] = ta.ULTOSC(df['High'], df['Low'], df['Close'],
+                             timeperiod1=7, timeperiod2=14, timeperiod3=28)
     
     # Remove NaN rows created by the lookback periods (up to 200 days for EMA_200)
     return df.dropna()
@@ -162,4 +175,27 @@ def find_indicator_occurrences(df: pd.DataFrame, ticker_name: str) -> list[dict]
     for date_idx in df[condition_5a].index:
         results.append({"Ticker Name": ticker_name, "Indicator": indicator_name_5a, "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
+        # 6. ATR + Trend (breakout with volatility)
+    indicator_name_6a = "Complex: Price > EMA50 + ATR High Volatility"
+    atr_threshold = df['ATR_14'].rolling(window=100).mean()
+    condition_6a = (df['Close'] > df['EMA_50']) & (df['ATR_14'] > atr_threshold)
+
+    for date_idx in df[condition_6a].index:
+        results.append({
+            "Ticker Name": ticker_name,
+            "Indicator": indicator_name_6a,
+            "Occurence Date": date_idx.strftime('%Y-%m-%d')
+        })
+
+    # 7. MFI Oversold + RSI Oversold
+    indicator_name_7a = "Complex: RSI < 30 + MFI < 20"
+    condition_7a = (df['RSI'] < 30) & (df['MFI_14'] < 20)
+
+    for date_idx in df[condition_7a].index:
+        results.append({
+            "Ticker Name": ticker_name,
+            "Indicator": indicator_name_7a,
+            "Occurence Date": date_idx.strftime('%Y-%m-%d')
+        })
+    
     return results
