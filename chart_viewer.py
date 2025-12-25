@@ -12,7 +12,7 @@ from plotly.subplots import make_subplots
 def display_signal_chart(selected_row):
 
     if selected_row is None:
-    return
+        return
 
     ticker = selected_row['Ticker Name']
     indicator = selected_row['Indicator']
