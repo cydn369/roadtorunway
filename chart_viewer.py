@@ -24,8 +24,8 @@ def display_signal_chart(selected_row):
     if arounddate is not None:
         if isinstance(arounddate, str):
             arounddate = pd.to_datetime(arounddate)
-        startdate = arounddate - pd.Timedelta(days=45)
-        enddate = arounddate + pd.Timedelta(days=45)
+        startdate = arounddate - pd.Timedelta(days=30)
+        enddate = arounddate + pd.Timedelta(days=30)
         hist = ticker.history(start=startdate, end=enddate)
         title = f"{symbol} chart around {arounddate.date()}"
     else:
