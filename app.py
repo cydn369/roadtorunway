@@ -132,9 +132,10 @@ if 'results_df' not in st.session_state:
 
 
 # 1. Ticker Dropdown
+st.subheader("1. Select Tickers")
 tickers = load_tickers()
 selected_tickers = st.multiselect(
-    "1. Select Tickers",
+    "Select Tickers",
     options=tickers,
     default=tickers[0] if tickers else None,
     help="Select one or more stock tickers from the list loaded from Nifty500.txt"
