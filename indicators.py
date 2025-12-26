@@ -5,70 +5,70 @@ import talib as ta
 
 def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculates all required TA-Lib indicators and adds them as columns.
-    
-    :param df: The raw stock data DataFrame (Open, High, Low, Close, Volume).
-    :return: DataFrame with calculated indicators.
+    Calculates ALL TA-Lib indicators including new additions.
     """
-    
-    # 1. Momentum Indicators: RSI (14), STOCH (14, 3, 3)
+    # Existing indicators (RSI, STOCH, EMA, MACD, BB, SAR, ADX, Ichimoku)...
     df['RSI'] = ta.RSI(df['Close'], timeperiod=14)
     slowk, slowd = ta.STOCH(df['High'], df['Low'], df['Close'], fastk_period=14, slowk_period=3, slowd_period=3)
     df['STOCH_K'] = slowk
     df['STOCH_D'] = slowd
-
-    # 2. Trend/MA Indicators: EMA 50, EMA 200
     df['EMA_50'] = ta.EMA(df['Close'], timeperiod=50)
     df['EMA_200'] = ta.EMA(df['Close'], timeperiod=200)
-
-    # 3. MACD (Standard 12, 26, 9)
     macd, macdsignal, _ = ta.MACD(df['Close'], fastperiod=12, slowperiod=26, signalperiod=9)
     df['MACD'] = macd
     df['MACD_Signal'] = macdsignal
-    
-    # 4. Volatility: Bollinger Bands (20, 2)
     upperband, _, lowerband = ta.BBANDS(df['Close'], timeperiod=20, nbdevup=2, nbdevdn=2, matype=0)
     df['BB_Upper'] = upperband
     df['BB_Lower'] = lowerband
-    
-    # 5. Parabolic SAR
     df['SAR'] = ta.SAR(df['High'], df['Low'], acceleration=0.02, maximum=0.2)
-
-    # 6. Directional Movement: ADX (14)
     df['ADX'] = ta.ADX(df['High'], df['Low'], df['Close'], timeperiod=14)
-
-    # 7. Ichimoku Cloud (9, 26, 52 periods) - Calculated components:
+    
+    # Ichimoku (unchanged)
     high_9 = df['High'].rolling(window=9).max()
     low_9 = df['Low'].rolling(window=9).min()
-    df['Tenkan_Sen'] = (high_9 + low_9) / 2 # Conversion Line (9)
-
+    df['Tenkan_Sen'] = (high_9 + low_9) / 2
     high_26 = df['High'].rolling(window=26).max()
     low_26 = df['Low'].rolling(window=26).min()
-    df['Kijun_Sen'] = (high_26 + low_26) / 2 # Base Line (26)
-
-    # Shifted 26 periods ahead
+    df['Kijun_Sen'] = (high_26 + low_26) / 2
     df['Senkou_Span_A'] = ((df['Tenkan_Sen'] + df['Kijun_Sen']) / 2).shift(26) 
-    
     high_52 = df['High'].rolling(window=52).max()
     low_52 = df['Low'].rolling(window=52).min()
-    df['Senkou_Span_B'] = ((high_52 + low_52) / 2).shift(26)
-
-    # 8. Volume + Money Flow
-    df['MFI_14'] = ta.MFI(df['High'], df['Low'], df['Close'], df['Volume'], timeperiod=14)
-    df['OBV'] = ta.OBV(df['Close'], df['Volume'])
-
-    # 9. Volatility (ATR)
-    df['ATR_14'] = ta.ATR(df['High'], df['Low'], df['Close'], timeperiod=14)
-
-    # 10. Extra Momentums
+    df['Senkou_Span_B'] = ((high_52 + low_52) / 2).shift(26) 
+    
+    # NEW: Trend Indicators
+    df['SMA_20'] = ta.SMA(df['Close'], timeperiod=20)
+    df['WMA_20'] = ta.WMA(df['Close'], timeperiod=20)
+    df['KAMA_10'] = ta.KAMA(df['Close'], timeperiod=10)
+    df['T3_10'] = ta.T3(df['Close'], timeperiod=10)
+    df['DEMA_20'] = ta.DEMA(df['Close'], timeperiod=20)
+    df['TEMA_20'] = ta.TEMA(df['Close'], timeperiod=20)
+    
+    # NEW: Momentum Indicators
     df['CCI_20'] = ta.CCI(df['High'], df['Low'], df['Close'], timeperiod=20)
     df['WILLR_14'] = ta.WILLR(df['High'], df['Low'], df['Close'], timeperiod=14)
-    df['ULTOSC'] = ta.ULTOSC(df['High'], df['Low'], df['Close'],
-                             timeperiod1=7, timeperiod2=14, timeperiod3=28)
+    df['ULTOSC'] = ta.ULTOSC(df['High'], df['Low'], df['Close'], timeperiod1=7, timeperiod2=14, timeperiod3=28)
+    df['TRIX_14'] = ta.TRIX(df['Close'], timeperiod=14)
+    slowk, slowd = ta.STOCHRSI(df['Close'], timeperiod=14, fastk_period=5, fastd_period=3, fastd_matype=0)
+    df['STOCHRSI_K'] = slowk
+    df['STOCHRSI_D'] = slowd
     
-    # Remove NaN rows created by the lookback periods (up to 200 days for EMA_200)
+    # NEW: Volume Indicators
+    df['OBV'] = ta.OBV(df['Close'], df['Volume'])
+    df['AD'] = ta.AD(df['High'], df['Low'], df['Close'], df['Volume'])
+    df['ADOSC_3_10'] = ta.ADOSC(df['High'], df['Low'], df['Close'], df['Volume'], 
+                                fastperiod=3, slowperiod=10)
+    
+    # NEW: Volatility Indicators
+    df['ATR_14'] = ta.ATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+    df['NATR_14'] = ta.NATR(df['High'], df['Low'], df['Close'], timeperiod=14)
+    df['TRANGE'] = ta.TRANGE(df['High'], df['Low'], df['Close'])
+    
+    # NEW: Price Transforms (for later use)
+    df['TYPPRICE'] = ta.TYPPRICE(df['High'], df['Low'], df['Close'])
+    df['WCLPRICE'] = ta.WCLPRICE(df['High'], df['Low'], df['Close'])
+    df['MEDPRICE'] = ta.MEDPRICE(df['High'], df['Low'])
+    
     return df.dropna()
-
 
 # --- Complex Indicator Condition Checking ---
 
@@ -197,5 +197,53 @@ def find_indicator_occurrences(df: pd.DataFrame, ticker_name: str) -> list[dict]
             "Indicator": indicator_name_7a,
             "Occurence Date": date_idx.strftime('%Y-%m-%d')
         })
+
+    # --- 6. Multi-MA Trend Confirmation ---
+    indicator_name_6a = "Complex: DEMA/TEMA Golden Cross + SMA20 Uptrend"
+    condition_6a = (df['DEMA_20'].shift(1) <= df['TEMA_20'].shift(1)) & \
+                   (df['DEMA_20'] > df['TEMA_20']) & \
+                   (df['Close'] > df['SMA_20'])
+    
+    for date_idx in df[condition_6a].index:
+        results.append({"Ticker Name": ticker_name, "Indicator": indicator_name_6a, "Occurence Date": date_idx.strftime('%Y-%m-%d')})
+
+    # --- 7. Momentum Divergence Confirmation ---
+    indicator_name_7a = "Complex: CCI Oversold + WILLR Exit + ULTOSC Bullish"
+    condition_7a = (df['CCI_20'] < -100) & \
+                   (df['WILLR_14'].shift(1) < -80) & (df['WILLR_14'] > -80) & \
+                   (df['ULTOSC'] > 30)
+    
+    for date_idx in df[condition_7a].index:
+        results.append({"Ticker Name": ticker_name, "Indicator": indicator_name_7a, "Occurence Date": date_idx.strftime('%Y-%m-%d')})
+
+    # --- 8. Volume Surge + Volatility Breakout ---
+    indicator_name_8a = "Complex: OBV New High + ATR Expansion + ADOSC > 0"
+    obv_high = df['OBV'].rolling(window=20).max()
+    atr_ma = df['ATR_14'].rolling(window=10).mean()
+    condition_8a = (df['OBV'] == obv_high) & \
+                   (df['ATR_14'] > 1.5 * atr_ma) & \
+                   (df['ADOSC_3_10'] > 0)
+    
+    for date_idx in df[condition_8a].index:
+        results.append({"Ticker Name": ticker_name, "Indicator": indicator_name_8a, "Occurence Date": date_idx.strftime('%Y-%m-%d')})
+
+    # --- 9. Triple Momentum Confirmation ---
+    indicator_name_9a = "Complex: STOCHRSI Bullish + TRIX Zero Cross + RSI Recovery"
+    condition_9a = (df['STOCHRSI_K'].shift(1) <= df['STOCHRSI_D'].shift(1)) & \
+                   (df['STOCHRSI_K'] > df['STOCHRSI_D']) & \
+                   (df['TRIX_14'].shift(1) <= 0) & (df['TRIX_14'] > 0) & \
+                   (df['RSI'] > 40)
+    
+    for date_idx in df[condition_9a].index:
+        results.append({"Ticker Name": ticker_name, "Indicator": indicator_name_9a, "Occurence Date": date_idx.strftime('%Y-%m-%d')})
+
+    # --- 10. KAMA Acceleration + NATR Contraction ---
+    indicator_name_10a = "Complex: KAMA Up + NATR Low Volatility + TYPPRICE > SMA"
+    condition_10a = (df['Close'] > df['KAMA_10']) & \
+                    (df['NATR_14'] < df['NATR_14'].rolling(20).mean()) & \
+                    (df['TYPPRICE'] > df['SMA_20'])
+    
+    for date_idx in df[condition_10a].index:
+        results.append({"Ticker Name": ticker_name, "Indicator": indicator_name_10a, "Occurence Date": date_idx.strftime('%Y-%m-%d')})
     
     return results
