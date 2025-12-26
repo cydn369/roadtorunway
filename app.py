@@ -168,38 +168,98 @@ if st.button("Run Analysis", type="primary"):
 
 # --- RESULTS DISPLAY (Run every time, if results exist) ---
 
-if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty:
+iif st.session_state['analysis_ran'] and not st.session_state['results_df'].empty:
     
     results_df = st.session_state['results_df']
     
-    # 4. Table: Ticker Name, Indicator, Occurence Date
     st.subheader("4. Indicator Occurrence Results")
     
-    # NEW FILTER SECTION
+    # FIXED FILTER SECTION - MOVED INSIDE RESULTS BLOCK
     st.markdown("**🔍 Filter Results**")
-    filtered_results = apply_indicator_filter(results_df)
     
-    # Show filter info
+    # Get unique indicators from current results
+    all_indicators = sorted(results_df['Indicator'].unique())
+    
+    # Create 5-column layout for filters
+    col1, col2, col3, col4, col5 = st.columns([2, 1, 2, 1, 2])
+    
+    with col1:
+        filter_ind1 = st.selectbox(
+            "Indicator 1", 
+            ["None"] + all_indicators, 
+            key="filter_ind1_unique"
+        )
+    with col2:
+        filter_logic1 = st.selectbox(
+            "AND/OR 1", 
+            ["AND", "OR"], 
+            key="filter_logic1_unique"
+        )
+    with col3:
+        filter_ind2 = st.selectbox(
+            "Indicator 2", 
+            ["None"] + all_indicators, 
+            key="filter_ind2_unique"
+        )
+    with col4:
+        filter_logic2 = st.selectbox(
+            "AND/OR 2", 
+            ["AND", "OR"], 
+            key="filter_logic2_unique"
+        )
+    with col5:
+        filter_ind3 = st.selectbox(
+            "Indicator 3", 
+            ["None"] + all_indicators, 
+            key="filter_ind3_unique"
+        )
+    
+    # Apply filters based on selections
+    filtered_results = results_df.copy()
+    
+    # Filter 1
+    if filter_ind1 != "None":
+        filtered_results = filtered_results[filtered_results['Indicator'] == filter_ind1]
+    
+    # Filter 2 with logic
+    if filter_ind2 != "None":
+        if filter_ind1 == "None" or filter_logic1 == "OR":
+            mask2 = (results_df['Indicator'] == filter_ind2)
+        else:  # AND
+            mask2 = (filtered_results['Indicator'] == filter_ind2)
+        filtered_results = filtered_results[mask2]
+    
+    # Filter 3 with logic
+    if filter_ind3 != "None":
+        if (filter_ind1 == "None" and filter_ind2 == "None") or \
+           (filter_ind1 != "None" and filter_ind2 == "None" and filter_logic1 == "OR") or \
+           (filter_ind1 != "None" and filter_ind2 != "None" and filter_logic2 == "OR"):
+            mask3 = (results_df['Indicator'] == filter_ind3)
+        else:  # AND
+            mask3 = (filtered_results['Indicator'] == filter_ind3)
+        filtered_results = filtered_results[mask3]
+    
+    # Show filter summary
     filter_count = len(filtered_results)
     total_count = len(results_df)
-    st.caption(f"Showing {filter_count} of {total_count} total signals")
+    st.caption(f"Showing **{filter_count}** of **{total_count}** total signals")
     
-    # Display Filtered DataFrame and allow row selection
+    # Display filtered table
     selected_rows = st.dataframe(
         filtered_results, 
         use_container_width=True, 
-        key="results_table",
+        key="results_table_filtered",
         on_select="rerun", 
         selection_mode="single-row"
     )
     
-    # Chart Display Logic (unchanged)
+    # Chart on row selection
     if selected_rows.get('selection', {}).get('rows'):
         selected_index = selected_rows['selection']['rows'][0]
         selected_row_data = filtered_results.iloc[selected_index].to_dict()
         display_signal_chart(selected_row_data)
 
-    # 5. Export to Excel Option (exports FILTERED results)
+    # Export filtered results
     st.subheader("5. Export Results")
     if not filtered_results.empty:
         excel_data = to_excel(filtered_results)
@@ -207,12 +267,12 @@ if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty
             get_download_link(
                 excel_data, 
                 f"Filtered_Results_{date.today().strftime('%Y%m%d')}.xlsx",
-                f"📥 **Download Filtered Results ({filter_count} signals) to Excel**"
+                f"📥 **Download Filtered Results ({filter_count} signals)**"
             ),
             unsafe_allow_html=True
         )
     else:
-        st.info("No results match the current filter. Clear filters to see all data.")
+        st.info("👆 No results match current filters. Select 'None' to clear.")
 
 elif st.session_state['analysis_ran'] and st.session_state['results_df'].empty:
-    st.success("Analysis Complete: No indicator occurrences found for the selected tickers/period.")
+    st.success("Analysis Complete: No indicator occurrences found.")
