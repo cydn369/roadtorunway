@@ -29,53 +29,6 @@ def get_download_link(data, filename, text):
     href = f'<a href="data:application/octet-stream;base64,{b64}" download="{filename}">{text}</a>'
     return href
 
-# NEW: Filter function
-def apply_indicator_filter(results_df):
-    """Applies the multi-indicator filter logic to results DataFrame."""
-    if results_df.empty:
-        return results_df
-    
-    # Get unique indicators
-    all_indicators = sorted(results_df['Indicator'].unique())
-    
-    col1, col2, col3, col4, col5 = st.columns([2, 1, 2, 1, 2])
-    
-    with col1:
-        ind1 = st.selectbox("Indicator 1", ["None"] + all_indicators, key="filter_ind1")
-    with col2:
-        logic1 = st.selectbox("AND/OR", ["AND", "OR"], key="filter_logic1")
-    with col3:
-        ind2 = st.selectbox("Indicator 2", ["None"] + all_indicators, key="filter_ind2")
-    with col4:
-        logic2 = st.selectbox("AND/OR", ["AND", "OR"], key="filter_logic2")
-    with col5:
-        ind3 = st.selectbox("Indicator 3", ["None"] + all_indicators, key="filter_ind3")
-    
-    # Apply filters step by step
-    filtered_df = results_df.copy()
-    
-    if ind1 != "None":
-        filtered_df = filtered_df[filtered_df['Indicator'] == ind1]
-    
-    if ind2 != "None":
-        if ind1 == "None" or logic1 == "OR":
-            mask2 = (results_df['Indicator'] == ind2)
-        else:  # AND logic
-            mask2 = (filtered_df['Indicator'] == ind2)
-        filtered_df = filtered_df[mask2]
-    
-    if ind3 != "None":
-        if (ind1 == "None" and ind2 == "None") or \
-           (ind1 != "None" and ind2 == "None" and logic1 == "OR") or \
-           (ind1 != "None" and ind2 != "None" and logic2 == "OR"):
-            mask3 = (results_df['Indicator'] == ind3)
-        else:  # Final AND
-            mask3 = (filtered_df['Indicator'] == ind3)
-        filtered_df = filtered_df[mask3]
-    
-    return filtered_df
-
-
 # --- CORE ANALYSIS FUNCTION (Moved out of button block) ---
 
 def run_analysis_and_store(selected_tickers, start_date, end_date):
