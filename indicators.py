@@ -75,6 +75,93 @@ def find_indicator_occurrences(df: pd.DataFrame, ticker_name: str) -> list[dict]
 
     results = []
 
+   # ALL 50+ CANDLESTICK PATTERNS (returns 100, -100, 0)
+    patterns = {
+        'CDL2CROWS': 'Two Crows',
+        'CDL3BLACKCROWS': 'Three Black Crows', 
+        'CDL3INSIDE': 'Three Inside Up/Down',
+        'CDL3LINESTRIKE': 'Three-Line Strike',
+        'CDL3OUTSIDE': 'Three Outside Up/Down',
+        'CDL3STARSINSOUTH': 'Three Stars In The South',
+        'CDL3WHITESOLDIERS': 'Three Advancing White Soldiers',
+        'CDLABANDONEDBABY': 'Abandoned Baby',
+        'CDLADVANCEBLOCK': 'Advance Block',
+        'CDLBELTHOLD': 'Belt-hold',
+        'CDLBREAKAWAY': 'Breakaway',
+        'CDLCLOSINGMARUBOZU': 'Closing Marubozu',
+        'CDLCONCEALBABYSWALL': 'Concealing Baby Swallow',
+        'CDLCOUNTERATTACK': 'Counterattack',
+        'CDLDARKCLOUDCOVER': 'Dark Cloud Cover',
+        'CDLDOJI': 'Doji',
+        'CDLDOJISTAR': 'Doji Star',
+        'CDLDRAGONFLYDOJI': 'Dragonfly Doji',
+        'CDLENGULFING': 'Engulfing Pattern',
+        'CDLEVENINGDOJISTAR': 'Evening Doji Star',
+        'CDLEVENINGSTAR': 'Evening Star',
+        'CDLGAPSIDESIDEWHITE': 'Gap Side-by-side White',
+        'CDLGRAVESTONEDOJI': 'Gravestone Doji',
+        'CDLHAMMER': 'Hammer',
+        'CDLHANGINGMAN': 'Hanging Man',
+        'CDLHARAMI': 'Harami Pattern',
+        'CDLHARAMICROSS': 'Harami Cross',
+        'CDLHIGHWAVE': 'High-Wave Candle',
+        'CDLHIKKAKE': 'Hikkake Pattern',
+        'CDLHIKKAKEMOD': 'Modified Hikkake',
+        'CDLHOMINGPIGEON': 'Homing Pigeon',
+        'CDLIDENTICAL3CROWS': 'Identical Three Crows',
+        'CDLINNECK': 'In-Neck Pattern',
+        'CDLINVERTEDHAMMER': 'Inverted Hammer',
+        'CDLKICKING': 'Kicking',
+        'CDLKICKINGBYLENGTH': 'Kicking by Length',
+        'CDLLADDERBOTTOM': 'Ladder Bottom',
+        'CDLLONGLEGGEDDOJI': 'Long Legged Doji',
+        'CDLLONGLINE': 'Long Line Candle',
+        'CDLMARUBOZU': 'Marubozu',
+        'CDLMATCHINGLOW': 'Matching Low',
+        'CDLMATHOLD': 'Mat Hold',
+        'CDLMORNINGDOJISTAR': 'Morning Doji Star',
+        'CDLMORNINGSTAR': 'Morning Star',
+        'CDLONNECK': 'On-Neck Pattern',
+        'CDLPIERCING': 'Piercing Pattern',
+        'CDLRICKSHAWMAN': 'Rickshaw Man',
+        'CDLRISEFALL3METHODS': 'Rising/Falling 3 Methods',
+        'CDLSEPARATINGLINES': 'Separating Lines',
+        'CDLSHOOTINGSTAR': 'Shooting Star',
+        'CDLSHORTLINE': 'Short Line Candle',
+        'CDLSPINNINGTOP': 'Spinning Top',
+        'CDLSTALLEDPATTERN': 'Stalled Pattern',
+        'CDLSTICKSANDWICH': 'Stick Sandwich',
+        'CDLTAKURI': 'Takuri (Dragonfly)',
+        'CDLTASUKIGAP': 'Tasuki Gap',
+        'CDLTHRUSTING': 'Thrusting Pattern',
+        'CDLTRISTAR': 'Tristar Pattern',
+        'CDLUNIQUE3RIVER': 'Unique 3 River',
+        'CDLUPSIDEGAP2CROWS': 'Upside Gap Two Crows',
+        'CDLXSIDEGAP3METHODS': 'XSide Gap 3 Methods'
+    }
+    
+    # Calculate ALL patterns at once
+    for pattern_name, pattern_desc in patterns.items():
+        pattern_values = getattr(ta, pattern_name)(df['Open'], df['High'], df['Low'], df['Close'])
+        
+        # BULLISH: +100
+        bullish_condition = (pattern_values == 100)
+        for date_idx in df[bullish_condition].index:
+            results.append({
+                "Ticker Name": ticker_name, 
+                "Indicator": f"CANDLE: {pattern_desc} (Bullish)", 
+                "Occurence Date": date_idx.strftime('%Y-%m-%d')
+            })
+        
+        # BEARISH: -100  
+        bearish_condition = (pattern_values == -100)
+        for date_idx in df[bearish_condition].index:
+            results.append({
+                "Ticker Name": ticker_name, 
+                "Indicator": f"CANDLE: {pattern_desc} (Bearish)", 
+                "Occurence Date": date_idx.strftime('%Y-%m-%d')
+            })
+
     # --- MOMENTUM SIGNALS ---
     # RSI Oversold Exit
     condition_rsi_bull = (df['RSI'].shift(1) < 30) & (df['RSI'] >= 30)
