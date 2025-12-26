@@ -174,70 +174,22 @@ if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty
     
     st.subheader("4. Indicator Occurrence Results")
     
-    # FIXED FILTER SECTION - MOVED INSIDE RESULTS BLOCK
-    st.markdown("**🔍 Filter Results**")
-    
-    # Get unique indicators from current results
+    # SINGLE MULTI-SELECT FILTER
+    st.markdown("**🔍 Filter by Indicators** (select multiple)")
     all_indicators = sorted(results_df['Indicator'].unique())
     
-    # Create 5-column layout for filters
-    col1, col2, col3, col4, col5 = st.columns([2, 1, 2, 1, 2])
+    selected_indicators = st.multiselect(
+        "Choose indicators to show:",
+        options=all_indicators,
+        default=all_indicators,  # Show all by default
+        key="indicator_filter"
+    )
     
-    with col1:
-        filter_ind1 = st.selectbox(
-            "Indicator 1", 
-            ["None"] + all_indicators, 
-            key="filter_ind1_unique"
-        )
-    with col2:
-        filter_logic1 = st.selectbox(
-            "AND/OR 1", 
-            ["AND", "OR"], 
-            key="filter_logic1_unique"
-        )
-    with col3:
-        filter_ind2 = st.selectbox(
-            "Indicator 2", 
-            ["None"] + all_indicators, 
-            key="filter_ind2_unique"
-        )
-    with col4:
-        filter_logic2 = st.selectbox(
-            "AND/OR 2", 
-            ["AND", "OR"], 
-            key="filter_logic2_unique"
-        )
-    with col5:
-        filter_ind3 = st.selectbox(
-            "Indicator 3", 
-            ["None"] + all_indicators, 
-            key="filter_ind3_unique"
-        )
-    
-    # Apply filters based on selections
-    filtered_results = results_df.copy()
-    
-    # Filter 1
-    if filter_ind1 != "None":
-        filtered_results = filtered_results[filtered_results['Indicator'] == filter_ind1]
-    
-    # Filter 2 with logic
-    if filter_ind2 != "None":
-        if filter_ind1 == "None" or filter_logic1 == "OR":
-            mask2 = (results_df['Indicator'] == filter_ind2)
-        else:  # AND
-            mask2 = (filtered_results['Indicator'] == filter_ind2)
-        filtered_results = filtered_results[mask2]
-    
-    # Filter 3 with logic
-    if filter_ind3 != "None":
-        if (filter_ind1 == "None" and filter_ind2 == "None") or \
-           (filter_ind1 != "None" and filter_ind2 == "None" and filter_logic1 == "OR") or \
-           (filter_ind1 != "None" and filter_ind2 != "None" and filter_logic2 == "OR"):
-            mask3 = (results_df['Indicator'] == filter_ind3)
-        else:  # AND
-            mask3 = (filtered_results['Indicator'] == filter_ind3)
-        filtered_results = filtered_results[mask3]
+    # Apply simple filter
+    if selected_indicators:
+        filtered_results = results_df[results_df['Indicator'].isin(selected_indicators)]
+    else:
+        filtered_results = results_df.copy()
     
     # Show filter summary
     filter_count = len(filtered_results)
@@ -272,7 +224,4 @@ if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty
             unsafe_allow_html=True
         )
     else:
-        st.info("👆 No results match current filters. Select 'None' to clear.")
-
-elif st.session_state['analysis_ran'] and st.session_state['results_df'].empty:
-    st.success("Analysis Complete: No indicator occurrences found.")
+        st.info("👆 Select indicators above to see results.")
