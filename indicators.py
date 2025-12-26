@@ -1,5 +1,5 @@
 import pandas as pd
-import talib as ta
+import tal ib as ta
 
 def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
    
