@@ -253,5 +253,5 @@ def find_indicator_occurrences(df: pd.DataFrame, ticker_name: str) -> list[dict]
     for date_idx in df[condition_trix_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "TRIX: Zero Line Cross", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    return results
+    return re sults
 
