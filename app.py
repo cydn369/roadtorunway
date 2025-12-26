@@ -1,6 +1,6 @@
 # app.py (REVISED FOR PERSISTENCE)
 
-imp ort streamlit as st
+import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
 from io import BytesIO
