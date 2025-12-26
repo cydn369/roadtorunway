@@ -1,8 +1,12 @@
 import pandas as pd
 import talib as ta
+import numpy as np
 
 def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
-   
+    """
+    Calculates ALL TA-Lib technical indicators (PRISTINE for technical analysis).
+    """
+    
     # 1. MOMENTUM: RSI, STOCH, STOCHRSI
     df['RSI'] = ta.RSI(df['Close'], timeperiod=14)
     slowk, slowd = ta.STOCH(df['High'], df['Low'], df['Close'], fastk_period=14, slowk_period=3, slowd_period=3)
@@ -68,190 +72,153 @@ def calculate_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df['WCLPRICE'] = ta.WCLPRICE(df['High'], df['Low'], df['Close'])
     df['MEDPRICE'] = ta.MEDPRICE(df['High'], df['Low'])
     
-    # Drop rows with NaN (first ~250 rows due to EMA_200 + Ichimoku)
     return df.dropna()
 
-def find_indicator_occurrences(df: pd.DataFrame, ticker_name: str) -> list[dict]:
-
+def find_technical_indicators(df: pd.DataFrame, ticker_name: str) -> list[dict]:
+    """Technical indicator signals using PRISTINE data."""
     results = []
 
-   # ALL 50+ CANDLESTICK PATTERNS (returns 100, -100, 0)
-    patterns = {
-        'CDL2CROWS': 'Two Crows',
-        'CDL3BLACKCROWS': 'Three Black Crows', 
-        'CDL3INSIDE': 'Three Inside Up/Down',
-        'CDL3LINESTRIKE': 'Three-Line Strike',
-        'CDL3OUTSIDE': 'Three Outside Up/Down',
-        'CDL3STARSINSOUTH': 'Three Stars In The South',
-        'CDL3WHITESOLDIERS': 'Three Advancing White Soldiers',
-        'CDLABANDONEDBABY': 'Abandoned Baby',
-        'CDLADVANCEBLOCK': 'Advance Block',
-        'CDLBELTHOLD': 'Belt-hold',
-        'CDLBREAKAWAY': 'Breakaway',
-        'CDLCLOSINGMARUBOZU': 'Closing Marubozu',
-        'CDLCONCEALBABYSWALL': 'Concealing Baby Swallow',
-        'CDLCOUNTERATTACK': 'Counterattack',
-        'CDLDARKCLOUDCOVER': 'Dark Cloud Cover',
-        'CDLDOJI': 'Doji',
-        'CDLDOJISTAR': 'Doji Star',
-        'CDLDRAGONFLYDOJI': 'Dragonfly Doji',
-        'CDLENGULFING': 'Engulfing Pattern',
-        'CDLEVENINGDOJISTAR': 'Evening Doji Star',
-        'CDLEVENINGSTAR': 'Evening Star',
-        'CDLGAPSIDESIDEWHITE': 'Gap Side-by-side White',
-        'CDLGRAVESTONEDOJI': 'Gravestone Doji',
-        'CDLHAMMER': 'Hammer',
-        'CDLHANGINGMAN': 'Hanging Man',
-        'CDLHARAMI': 'Harami Pattern',
-        'CDLHARAMICROSS': 'Harami Cross',
-        'CDLHIGHWAVE': 'High-Wave Candle',
-        'CDLHIKKAKE': 'Hikkake Pattern',
-        'CDLHIKKAKEMOD': 'Modified Hikkake',
-        'CDLHOMINGPIGEON': 'Homing Pigeon',
-        'CDLIDENTICAL3CROWS': 'Identical Three Crows',
-        'CDLINNECK': 'In-Neck Pattern',
-        'CDLINVERTEDHAMMER': 'Inverted Hammer',
-        'CDLKICKING': 'Kicking',
-        'CDLKICKINGBYLENGTH': 'Kicking by Length',
-        'CDLLADDERBOTTOM': 'Ladder Bottom',
-        'CDLLONGLEGGEDDOJI': 'Long Legged Doji',
-        'CDLLONGLINE': 'Long Line Candle',
-        'CDLMARUBOZU': 'Marubozu',
-        'CDLMATCHINGLOW': 'Matching Low',
-        'CDLMATHOLD': 'Mat Hold',
-        'CDLMORNINGDOJISTAR': 'Morning Doji Star',
-        'CDLMORNINGSTAR': 'Morning Star',
-        'CDLONNECK': 'On-Neck Pattern',
-        'CDLPIERCING': 'Piercing Pattern',
-        'CDLRICKSHAWMAN': 'Rickshaw Man',
-        'CDLRISEFALL3METHODS': 'Rising/Falling 3 Methods',
-        'CDLSEPARATINGLINES': 'Separating Lines',
-        'CDLSHOOTINGSTAR': 'Shooting Star',
-        'CDLSHORTLINE': 'Short Line Candle',
-        'CDLSPINNINGTOP': 'Spinning Top',
-        'CDLSTALLEDPATTERN': 'Stalled Pattern',
-        'CDLSTICKSANDWICH': 'Stick Sandwich',
-        'CDLTAKURI': 'Takuri (Dragonfly)',
-        'CDLTASUKIGAP': 'Tasuki Gap',
-        'CDLTHRUSTING': 'Thrusting Pattern',
-        'CDLTRISTAR': 'Tristar Pattern',
-        'CDLUNIQUE3RIVER': 'Unique 3 River',
-        'CDLUPSIDEGAP2CROWS': 'Upside Gap Two Crows',
-        'CDLXSIDEGAP3METHODS': 'XSide Gap 3 Methods'
-    }
-    
-    # Calculate ALL patterns at once
-    for pattern_name, pattern_desc in patterns.items():
-        pattern_values = getattr(ta, pattern_name)(df['Open'], df['High'], df['Low'], df['Close'])
-        
-        # BULLISH: +100
-        bullish_condition = (pattern_values == 100)
-        for date_idx in df[bullish_condition].index:
-            results.append({
-                "Ticker Name": ticker_name, 
-                "Indicator": f"CANDLE: {pattern_desc} (Bullish)", 
-                "Occurence Date": date_idx.strftime('%Y-%m-%d')
-            })
-        
-        # BEARISH: -100  
-        bearish_condition = (pattern_values == -100)
-        for date_idx in df[bearish_condition].index:
-            results.append({
-                "Ticker Name": ticker_name, 
-                "Indicator": f"CANDLE: {pattern_desc} (Bearish)", 
-                "Occurence Date": date_idx.strftime('%Y-%m-%d')
-            })
-
-    # --- MOMENTUM SIGNALS ---
-    # RSI Oversold Exit
+    # MOMENTUM SIGNALS
     condition_rsi_bull = (df['RSI'].shift(1) < 30) & (df['RSI'] >= 30)
     for date_idx in df[condition_rsi_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "RSI: Oversold Exit (>30)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
     
-    # RSI Overbought Exit  
     condition_rsi_bear = (df['RSI'].shift(1) > 70) & (df['RSI'] <= 70)
     for date_idx in df[condition_rsi_bear].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "RSI: Overbought Exit (<70)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # CCI Oversold
     condition_cci_bull = df['CCI_20'] < -100
     for date_idx in df[condition_cci_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "CCI: Oversold (<-100)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # WILLR Oversold Exit
     condition_willr_bull = (df['WILLR_14'].shift(1) < -80) & (df['WILLR_14'] > -80)
     for date_idx in df[condition_willr_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "WILLR: Oversold Exit (>-80)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # --- TREND SIGNALS ---
-    # EMA Golden Cross
+    # TREND SIGNALS
     condition_ema_bull = (df['EMA_50'].shift(1) <= df['EMA_200'].shift(1)) & (df['EMA_50'] > df['EMA_200'])
     for date_idx in df[condition_ema_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "EMA: Golden Cross (50>200)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # EMA Death Cross
     condition_ema_bear = (df['EMA_50'].shift(1) >= df['EMA_200'].shift(1)) & (df['EMA_50'] < df['EMA_200'])
     for date_idx in df[condition_ema_bear].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "EMA: Death Cross (50<200)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # DEMA/TEMA Cross
     condition_dema_bull = (df['DEMA_20'].shift(1) <= df['TEMA_20'].shift(1)) & (df['DEMA_20'] > df['TEMA_20'])
     for date_idx in df[condition_dema_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "DEMA: Bull Cross over TEMA", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # Strong ADX Trend
     condition_adx_strong = df['ADX'] > 25
     for date_idx in df[condition_adx_strong].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "ADX: Strong Trend (>25)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # --- CROSSOVER SIGNALS ---
-    # MACD Bullish Crossover
+    # CROSSOVER SIGNALS
     condition_macd_bull = (df['MACD'].shift(1) <= df['MACD_Signal'].shift(1)) & (df['MACD'] > df['MACD_Signal'])
     for date_idx in df[condition_macd_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "MACD: Bullish Crossover", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # STOCH Bullish Crossover
     condition_stoch_bull = (df['STOCH_K'].shift(1) <= df['STOCH_D'].shift(1)) & (df['STOCH_K'] > df['STOCH_D'])
     for date_idx in df[condition_stoch_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "STOCH: Bullish Crossover", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # STOCHRSI Bullish Crossover
     condition_stochrsi_bull = (df['STOCHRSI_K'].shift(1) <= df['STOCHRSI_D'].shift(1)) & (df['STOCHRSI_K'] > df['STOCHRSI_D'])
     for date_idx in df[condition_stochrsi_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "STOCHRSI: Bullish Crossover", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # Ichimoku Tenkan Bull Cross
     condition_ichi_bull = (df['Tenkan_Sen'].shift(1) <= df['Kijun_Sen'].shift(1)) & (df['Tenkan_Sen'] > df['Kijun_Sen'])
     for date_idx in df[condition_ichi_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "Ichimoku: Tenkan Bull Cross", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # --- VOLATILITY & PRICE SIGNALS ---
-    # BB Lower Touch
+    # VOLATILITY & PRICE SIGNALS
     condition_bb_bull = df['Close'] < df['BB_Lower']
     for date_idx in df[condition_bb_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "BBands: Lower Band Touch", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # SAR Bullish Flip
     condition_sar_bull = (df['Close'].shift(1) <= df['SAR'].shift(1)) & (df['Close'] > df['SAR'])
     for date_idx in df[condition_sar_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "SAR: Bullish Flip", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # ATR Expansion
     atr_ma = df['ATR_14'].rolling(20).mean()
     condition_atr_high = df['ATR_14'] > 1.5 * atr_ma
     for date_idx in df[condition_atr_high].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "ATR: High Volatility (1.5x)", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # OBV New High
     obv_high = df['OBV'].rolling(20).max()
     condition_obv_high = df['OBV'] == obv_high
     for date_idx in df[condition_obv_high].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "OBV: 20d New High", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
-    # TRIX Zero Cross
     condition_trix_bull = (df['TRIX_14'].shift(1) <= 0) & (df['TRIX_14'] > 0)
     for date_idx in df[condition_trix_bull].index:
         results.append({"Ticker Name": ticker_name, "Indicator": "TRIX: Zero Line Cross", "Occurence Date": date_idx.strftime('%Y-%m-%d')})
 
     return results
 
+def find_candlestick_patterns(df: pd.DataFrame, ticker_name: str) -> list[dict]:
+    """Candlestick patterns using CLEANED data copy ONLY."""
+    results = []
+    
+    # CLEAN COPY for candlesticks ONLY (original df untouched)
+    candle_df = df[['Open', 'High', 'Low', 'Close']].copy()
+    candle_df = candle_df.fillna(method='ffill').fillna(0).astype(np.float64)
+    
+    open_arr = candle_df['Open'].values
+    high_arr = candle_df['High'].values
+    low_arr = candle_df['Low'].values
+    close_arr = candle_df['Close'].values
+    
+    # Most common/reliable patterns
+    patterns = {
+        'CDLDOJI': 'Doji',
+        'CDLHAMMER': 'Hammer',
+        'CDLENGULFING': 'Engulfing',
+        'CDLSHOOTINGSTAR': 'Shooting Star',
+        'CDLHANGINGMAN': 'Hanging Man',
+        'CDLDRAGONFLYDOJI': 'Dragonfly Doji',
+        'CDLGRAVESTONEDOJI': 'Gravestone Doji',
+        'CDLMARUBOZU': 'Marubozu',
+        'CDLSPINNINGTOP': 'Spinning Top',
+        'CDLMORNINGSTAR': 'Morning Star',
+        'CDLEVENINGSTAR': 'Evening Star',
+        'CDLPIERCING': 'Piercing',
+        'CDLDARKCLOUDCOVER': 'Dark Cloud Cover'
+    }
+    
+    for pattern_name, desc in patterns.items():
+        try:
+            pattern_values = getattr(ta, pattern_name)(open_arr, high_arr, low_arr, close_arr)
+            
+            for i, val in enumerate(pattern_values):
+                if pd.notna(df.index[i]):  # Valid date
+                    if val == 100:
+                        results.append({
+                            "Ticker Name": ticker_name,
+                            "Indicator": f"CANDLE: {desc} (Bullish)",
+                            "Occurence Date": df.index[i].strftime('%Y-%m-%d')
+                        })
+                    elif val == -100:
+                        results.append({
+                            "Ticker Name": ticker_name,
+                            "Indicator": f"CANDLE: {desc} (Bearish)",
+                            "Occurence Date": df.index[i].strftime('%Y-%m-%d')
+                        })
+        except:
+            continue
+    
+    return results
+
+def find_indicator_occurrences(df: pd.DataFrame, ticker_name: str) -> list[dict]:
+    """
+    MAIN FUNCTION: Technical + Candlesticks (separate data paths).
+    """
+    results = []
+    
+    # 1. Technical indicators (pristine data)
+    tech_results = find_technical_indicators(df, ticker_name)
+    results.extend(tech_results)
+    
+    # 2. Candlestick patterns (cleaned copy only)
+    candle_results = find_candlestick_patterns(df, ticker_name)
+    results.extend(candle_results)
+    
+    return results
