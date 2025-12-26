@@ -14,7 +14,6 @@ from chart_viewer import display_signal_chart
 
 
 # --- UI Helper Functions (Export/Download) ---
-# (Keep the existing to_excel and get_download_link functions)
 
 def to_excel(df):
     """Converts a pandas DataFrame to an in-memory Excel file (XLSX)."""
@@ -29,6 +28,52 @@ def get_download_link(data, filename, text):
     b64 = base64.b64encode(data).decode()
     href = f'<a href="data:application/octet-stream;base64,{b64}" download="{filename}">{text}</a>'
     return href
+
+# NEW: Filter function
+def apply_indicator_filter(results_df):
+    """Applies the multi-indicator filter logic to results DataFrame."""
+    if results_df.empty:
+        return results_df
+    
+    # Get unique indicators
+    all_indicators = sorted(results_df['Indicator'].unique())
+    
+    col1, col2, col3, col4, col5 = st.columns([2, 1, 2, 1, 2])
+    
+    with col1:
+        ind1 = st.selectbox("Indicator 1", ["None"] + all_indicators, key="filter_ind1")
+    with col2:
+        logic1 = st.selectbox("AND/OR", ["AND", "OR"], key="filter_logic1")
+    with col3:
+        ind2 = st.selectbox("Indicator 2", ["None"] + all_indicators, key="filter_ind2")
+    with col4:
+        logic2 = st.selectbox("AND/OR", ["AND", "OR"], key="filter_logic2")
+    with col5:
+        ind3 = st.selectbox("Indicator 3", ["None"] + all_indicators, key="filter_ind3")
+    
+    # Apply filters step by step
+    filtered_df = results_df.copy()
+    
+    if ind1 != "None":
+        filtered_df = filtered_df[filtered_df['Indicator'] == ind1]
+    
+    if ind2 != "None":
+        if ind1 == "None" or logic1 == "OR":
+            mask2 = (results_df['Indicator'] == ind2)
+        else:  # AND logic
+            mask2 = (filtered_df['Indicator'] == ind2)
+        filtered_df = filtered_df[mask2]
+    
+    if ind3 != "None":
+        if (ind1 == "None" and ind2 == "None") or \
+           (ind1 != "None" and ind2 == "None" and logic1 == "OR") or \
+           (ind1 != "None" and ind2 != "None" and logic2 == "OR"):
+            mask3 = (results_df['Indicator'] == ind3)
+        else:  # Final AND
+            mask3 = (filtered_df['Indicator'] == ind3)
+        filtered_df = filtered_df[mask3]
+    
+    return filtered_df
 
 
 # --- CORE ANALYSIS FUNCTION (Moved out of button block) ---
@@ -121,7 +166,6 @@ if st.button("Run Analysis", type="primary"):
     else:
         run_analysis_and_store(selected_tickers, start_date, end_date)
 
-
 # --- RESULTS DISPLAY (Run every time, if results exist) ---
 
 if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty:
@@ -131,34 +175,44 @@ if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty
     # 4. Table: Ticker Name, Indicator, Occurence Date
     st.subheader("4. Indicator Occurrence Results")
     
-    # Display DataFrame and allow row selection
+    # NEW FILTER SECTION
+    st.markdown("**🔍 Filter Results**")
+    filtered_results = apply_indicator_filter(results_df)
+    
+    # Show filter info
+    filter_count = len(filtered_results)
+    total_count = len(results_df)
+    st.caption(f"Showing {filter_count} of {total_count} total signals")
+    
+    # Display Filtered DataFrame and allow row selection
     selected_rows = st.dataframe(
-        results_df, 
+        filtered_results, 
         use_container_width=True, 
         key="results_table",
         on_select="rerun", 
         selection_mode="single-row"
     )
     
-    # Chart Display Logic
-    if selected_rows['selection']['rows']:
+    # Chart Display Logic (unchanged)
+    if selected_rows.get('selection', {}).get('rows'):
         selected_index = selected_rows['selection']['rows'][0]
-        selected_row_data = results_df.iloc[selected_index].to_dict()
-        
-        # Display Chart on Row Click
+        selected_row_data = filtered_results.iloc[selected_index].to_dict()
         display_signal_chart(selected_row_data)
 
-    # 5. Export to Excel Option
+    # 5. Export to Excel Option (exports FILTERED results)
     st.subheader("5. Export Results")
-    excel_data = to_excel(results_df)
-    st.markdown(
-        get_download_link(
-            excel_data, 
-            f"Indicator_Results_{date.today().strftime('%Y%m%d')}.xlsx",
-            "📥 **Download Results to Excel (XLSX)**"
-        ),
-        unsafe_allow_html=True
-    )
+    if not filtered_results.empty:
+        excel_data = to_excel(filtered_results)
+        st.markdown(
+            get_download_link(
+                excel_data, 
+                f"Filtered_Results_{date.today().strftime('%Y%m%d')}.xlsx",
+                f"📥 **Download Filtered Results ({filter_count} signals) to Excel**"
+            ),
+            unsafe_allow_html=True
+        )
+    else:
+        st.info("No results match the current filter. Clear filters to see all data.")
 
 elif st.session_state['analysis_ran'] and st.session_state['results_df'].empty:
     st.success("Analysis Complete: No indicator occurrences found for the selected tickers/period.")
