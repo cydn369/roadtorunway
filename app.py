@@ -168,7 +168,7 @@ if st.button("Run Analysis", type="primary"):
 
 # --- RESULTS DISPLAY (Run every time, if results exist) ---
 
-iif st.session_state['analysis_ran'] and not st.session_state['results_df'].empty:
+if st.session_state['analysis_ran'] and not st.session_state['results_df'].empty:
     
     results_df = st.session_state['results_df']
     
